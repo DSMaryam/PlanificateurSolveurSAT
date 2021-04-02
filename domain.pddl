@@ -19,7 +19,7 @@
              :effect (and (not (free ?o))
 	     	     	  (free ?c)
 			          (not (ondeck ?c) )
-                (on ?c ?o))
+                      (on ?c ?o))
   )
 
   (:action from_base_to_base
@@ -28,6 +28,7 @@
              :effect (and (free ?o1)
 	     	     	 (not (free ?o2))
                      (on ?c ?o2)
+                     (not (on ?c ?o1))
                      (not (hidden ?o1)) )
   )
 
@@ -45,6 +46,7 @@
              :effect (and (free ?o1)
 	     	    (not (free ?o2))
                 (on ?c ?o2)
+                (not (on ?c ?o1))
                 (placed ?c)
                 (not (hidden ?o1)))
 )
@@ -55,7 +57,8 @@
              :effect (and (free ?o1)
 	     	     	  (not (free ?o2))
                 (on ?c ?o2)
-                (not (placed ?c)))
+                (not (placed ?c))
+                (not (on ?c ?o1)))
 )
 
 )
