@@ -57,8 +57,11 @@ if __name__ == "__main__":
     
     parser = PDDL_Parser()
     
-    parser.parse_domain('domain.pddl')
-    parser.parse_problem('problem.pddl')
+    parser.parse_domain('examples/domain.pddl')
+    parser.parse_problem('examples/reversed.pddl')
+    
+    """
+    e.g of optimal plans for other problems 
     
     plan = [(2, 'jack_black', 'end_col_2'),
             (2, 'jack_red', 'end_col_1'),
@@ -68,5 +71,44 @@ if __name__ == "__main__":
             (3, 'queen_red', 'base_col_1', 'jack_red'),
             (3, 'king_red', 'base_col_3', 'queen_red')]
     
+    plan = [(4, 'queen_red', 'end_col_1', 'king_black'),
+            (1, 'jack_black', 'ten_black', 'queen_red'),
+            (3, 'ten_black', 'base_col_2', 'end_col_2'),
+            (3, 'jack_black','queen_red', 'ten_black'),
+            (3, 'queen_red', 'king_black', 'end_col_1'),
+            (2, 'king_red', 'queen_red'),
+            (2, 'queen_black', 'jack_black'),
+            (3, 'king_black', 'base_col_1', 'queen_black')]
+    """
+    plan = [(0, 'queen_red', 'king_black'),
+            (0, 'queen_black', 'king_red'),
+            (1, 'king_red', 'jack_red', 'base_col_4'),
+            (1, 'king_black','jack_black', 'base_col_3'),
+            (1, 'jack_black', 'ten_black', 'queen_red'),
+            (0, 'nine_red', 'ten_black'),
+            (1, 'ten_black', 'eight_black', 'jack_red'),
+            (1, 'eight_black', 'six_black', 'nine_red'),
+            (3, 'six_black', 'base_col_2', 'end_col_2'),
+            (2, 'seven_black', 'six_black'),
+            (3, 'eight_black', 'nine_red', 'seven_black'),
+            (1, 'jack_red','ten_red', 'queen_black'),
+            (0, 'nine_black', 'ten_red'),
+            (1, 'ten_red', 'eight_red', 'jack_black'), 
+            (1, 'eight_red','six_red', 'nine_black'),
+            (3, 'six_red', 'base_col_1', 'end_col_1'),
+            (2, 'seven_red', 'six_red'),
+            (3, 'eight_red', 'nine_black', 'seven_red'),  
+            (3, 'nine_black', 'ten_red', 'eight_black'),
+            (3, 'nine_red', 'ten_black', 'eight_red'),
+            (3, 'ten_black', 'jack_red', 'nine_black'),
+            (3, 'ten_red','jack_black', 'nine_red'),
+            (3, 'jack_black', 'queen_red', 'ten_black'),
+            (3, 'jack_red', 'queen_black', 'ten_red'),
+            (3, 'queen_black', 'king_red', 'jack_black'),
+            (3, 'queen_red', 'king_black', 'jack_red'),
+            (3, 'king_black', 'base_col_3', 'queen_black'),
+            (3, 'king_red', 'base_col_4', 'queen_red')
+            
+            ]
     print(check_plan(plan, parser))
 
