@@ -7,22 +7,6 @@ module_path = os.path.abspath(os.path.join(os.path.dirname(sys.argv[0]), './pddl
 sys.path.append(module_path)
 from PDDL import PDDL_Parser
 
-""" 
- 'actions',
- 'domain_name',
- 'objects',
- 'predicates',
- 'requirements',
- 'scan_tokens',
- 'split_predicates',
- 'types'
- 
- parser.positive_goals
- parser.negative_goals
- parser.state
-"""
-
-
 
 class Operator(Enum):
     AND = 0,
