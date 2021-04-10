@@ -71,7 +71,7 @@ class Clause(object):
 
 class PlanningProblemEncoder(object):
 
-    def __init__(self, parser,immutable_predicates = ['adjacent'], length=1):
+    def __init__(self, parser,immutable_predicates = ['can_move_on_top','can_place_on_top'], length=1):
         self._problem = parser
         self.predicates = {key : list(item.values()) for key, item \
                            in self._problem.predicates.items()}
@@ -210,8 +210,8 @@ class PlanningProblemEncoder(object):
                 if action_pair[1].add_effects.issubset(
                         action_pair[1].positive_preconditions):
                     continue
-                action0_tuple = ('not', action_pair[0].name,*act.parameters, str(step))
-                action1_tuple = ('not', action_pair[1].name,*act.parameters, str(step))
+                action0_tuple = ('not', action_pair[0].name,*action_pair[0].parameters, str(step))
+                action1_tuple = ('not', action_pair[1].name,*action_pair[1].parameters, str(step))
                 action_pair_clause = Clause(action0_tuple)
                 action_pair_clause.add(action1_tuple, Operator.OR)
                 complete_exclusion_axiom.append(action_pair_clause)
@@ -264,9 +264,9 @@ class PlanningProblemEncoder(object):
         action_names = [act.name for act in self._problem.actions]
         positive_act = list(filter(lambda v: valuation[indexing[v]]\
                                    and v[0] in action_names, variables))
-        positive_act = sorted(positive_act, key = lambda x : x[-1])
-        plan = [action[:-1] for action in positive_act]
-        return plan
+        positive_act = sorted(positive_act, key = lambda x : int(x[-1]))
+    
+        return positive_act
 
     @property
     def propositional_formulas(self):
@@ -276,11 +276,11 @@ if __name__ == "__main__":
     
     parser = PDDL_Parser()
     
-    parser.parse_domain('examples/simple_domain.pddl')
-    parser.parse_problem('examples/simple_problem.pddl')
+    parser.parse_domain('examples/child_snack_domain.pddl')
+    parser.parse_problem('examples/child_snack_problem.pddl')
 
     # change length according to plan estimation
-    pb = PlanningProblemEncoder(parser, length = 1) 
+    pb = PlanningProblemEncoder(parser, length = 5) 
     
     
     indexing, clauses = pb.formulas_to_sat()
