@@ -1,5 +1,6 @@
 from enum import Enum
 from itertools import *
+from pycryptosat import Solver
 
 import sys, os
 # Make sure you have cloned pddl-parser git repo 
@@ -70,7 +71,7 @@ class Clause(object):
 
 class PlanningProblemEncoder(object):
 
-    def __init__(self, parser, length=1):
+    def __init__(self, parser,immutable_predicates = ['adjacent'], length=1):
         self._problem = parser
         self.predicates = {key : list(item.values()) for key, item \
                            in self._problem.predicates.items()}
@@ -78,6 +79,7 @@ class PlanningProblemEncoder(object):
         self._length = length
         self.action_encoding = {act.name : act \
                                 for act in self._problem.actions}
+        self.immutable_predicates = immutable_predicates
         self._propositional_formulas = self._encode()
         
     
@@ -148,10 +150,10 @@ class PlanningProblemEncoder(object):
             for act in actions:
                 if act.add_effects.issubset(act.positive_preconditions):
                     continue
-                action_tuple = ('not', act.name, str(step))
+                action_tuple = ('not', act.name,*act.parameters, str(step))
                 # preconditions
                 for p in act.positive_preconditions:
-                    if 'adjacent' in p: # maybe predicates that are always true (domain dependant)
+                    if any(pred in p for pred in self.immutable_predicates) :# maybe predicates that are always true (domain dependant)
                         continue
                     action_clause = Clause(action_tuple)
                     p = p + (str(step),)
@@ -187,7 +189,7 @@ class PlanningProblemEncoder(object):
                     clause_pos = Clause(a_pos)
                     clause_pos.add(b_pos, Operator.OR)
                     for act in act_with_pos_effect:
-                        c_pos = (act, str(step))
+                        c_pos = (act.name, *act.parameters,  str(step))
                         clause_pos.add(c_pos, Operator.OR)
                     explanatory_frame_axioms.append(clause_pos)
                 if act_with_neg_effect:
@@ -196,7 +198,7 @@ class PlanningProblemEncoder(object):
                     clause_neg = Clause(a_neg)
                     clause_neg.add(b_neg, Operator.OR)
                     for act in act_with_neg_effect:
-                        c_neg = (act, str(step))
+                        c_neg = (act.name, *act.parameters, str(step))
                         clause_neg.add(c_neg, Operator.OR)
                     explanatory_frame_axioms.append(clause_neg)
 
@@ -208,8 +210,8 @@ class PlanningProblemEncoder(object):
                 if action_pair[1].add_effects.issubset(
                         action_pair[1].positive_preconditions):
                     continue
-                action0_tuple = ('not', action_pair[0], str(step))
-                action1_tuple = ('not', action_pair[1], str(step))
+                action0_tuple = ('not', action_pair[0].name,*act.parameters, str(step))
+                action1_tuple = ('not', action_pair[1].name,*act.parameters, str(step))
                 action_pair_clause = Clause(action0_tuple)
                 action_pair_clause.add(action1_tuple, Operator.OR)
                 complete_exclusion_axiom.append(action_pair_clause)
@@ -220,6 +222,52 @@ class PlanningProblemEncoder(object):
 
         return proposition_formulas
 
+    def _sat_indexing(self):
+        idx = 0
+        variables = set()
+        for clause in self.propositional_formulas:
+            v = clause.clause[0::2]
+            v = list(map(lambda l : l[1:] if l[0] == 'not' else l, v))
+            variables = variables.union(v)
+        variables = list(variables)
+        indexing = {variables[i] : i + 1 for i in range(len(variables))}
+        return indexing
+    
+    def formulas_to_sat(self):
+        """
+        Returns
+        -------     
+        indexing : Dict
+            Keys : Set of variables in boolean SAT problem.
+            Values : How every variable is encoded as int type.
+        clauses : List
+            Clauses to satisfy (respect the CryptoMiniSat format.
+
+        """
+        indexing = self._sat_indexing()
+        clauses = []
+        for clause in self.propositional_formulas:
+            v = clause.clause[0::2]
+            cl = []
+            for literal in v:
+                sign = 1
+                if literal [0] == 'not' :
+                    sign = -1
+                    _, *literal = literal
+                cl.append(sign * indexing[tuple(literal)])
+            clauses.append(cl)
+        return indexing, clauses
+                    
+    
+    def build_plan(self, valuation, indexing):
+        variables = list(indexing.keys())
+        action_names = [act.name for act in self._problem.actions]
+        positive_act = list(filter(lambda v: valuation[indexing[v]]\
+                                   and v[0] in action_names, variables))
+        positive_act = sorted(positive_act, key = lambda x : x[-1])
+        plan = [action[:-1] for action in positive_act]
+        return plan
+
     @property
     def propositional_formulas(self):
         return self._propositional_formulas
@@ -228,5 +276,20 @@ if __name__ == "__main__":
     
     parser = PDDL_Parser()
     
-    parser.parse_domain('examples/domain.pddl')
-    parser.parse_problem('examples/problem.pddl')
+    parser.parse_domain('examples/simple_domain.pddl')
+    parser.parse_problem('examples/simple_problem.pddl')
+
+    # change length according to plan estimation
+    pb = PlanningProblemEncoder(parser, length = 1) 
+    
+    
+    indexing, clauses = pb.formulas_to_sat()
+    sat_solver = Solver()
+    sat_solver.add_clauses(clauses)
+    sat, valuation = sat_solver.solve()
+    if sat :
+        plan = pb.build_plan(valuation, indexing)
+        print("Plan found !")
+        for act, *objs in plan:
+            print(f'{act} --> {objs}')
+    
