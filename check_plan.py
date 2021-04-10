@@ -8,10 +8,11 @@ from PDDL import PDDL_Parser
 def check_plan(plan , parser):
     
     current_state  = parser.state
-    
-    for action_id, *objects in plan:
-        action = parser.actions[action_id]
-        print(action)
+    print(current_state)
+    for action_name, *objects in plan:
+        action_id = [action.name for action in parser.actions].index(action_name)
+        action = list(parser.actions)[action_id]
+        #print(action)
         n = len(objects)
                 
         #objects_rep = {objects[i] : action.parameters[i][0]\
@@ -29,6 +30,7 @@ def check_plan(plan , parser):
         
         for cond, *objs  in action.positive_preconditions:
             objs = [objects_rep[obj] for obj in objs]
+            print(cond,*objs)
             assert (cond, *objs) in current_state
         
         for cond, *objs  in action.negative_preconditions:
