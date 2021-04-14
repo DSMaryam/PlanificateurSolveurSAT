@@ -51,4 +51,15 @@
                 (not (hidden ?o1)))
 )
 
+(:action return
+             :parameters (?c - card ?o1 - object ?o2 - object )
+             :precondition (and (placed ?c) (on ?c ?o1) (free ?c) (free ?o2) (can_move_on_top ?c ?o2))
+             :effect (and (free ?o1)
+	     	     	  (not (free ?o2))
+                (on ?c ?o2)
+                (not (placed ?c))
+                (not (on ?c ?o1)))
+)
+
+
 )
