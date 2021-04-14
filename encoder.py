@@ -1,72 +1,6 @@
-from enum import Enum
-import time 
 from itertools import *
-from pycryptosat import Solver
+from clause import Operator, Clause
 
-import sys, os
-# Make sure you have cloned pddl-parser git repo 
-module_path = os.path.abspath(os.path.join(os.path.dirname(sys.argv[0]), './pddl-parser'))
-sys.path.append(module_path)
-from PDDL import PDDL_Parser
-
-class Operator(Enum):
-    AND = 0,
-    OR = 1,
-    IMPLIES = 2
-
-
-class Clause(object):
-
-    def __init__(self, fluent=None):
-        if fluent:
-            self._clause = [fluent]
-            self._single = True
-        else:
-            self._clause = []
-            self._single = False
-
-    def __repr__(self):
-        return f"Clause object. {self._clause}"
-
-    def __len__(self):
-        return len(self._clause)
-
-    def __getitem__(self, item):
-        return self._clause[item]
-
-    def __contains__(self, item):
-        return True if item in self._clause else False
-
-    def __eq__(self, other):
-        if self._single == other.is_single and self._clause == other.clause:
-            return True
-        else:
-            return False
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    def add(self, fluent, operator: Operator):
-        if len(self._clause) == 0:
-            self._single = True
-        else:
-            self._single = False
-            self._clause.append(operator)
-        self._clause.append(fluent)
-
-        return self
-
-    @property
-    def clause(self):
-        return self._clause
-
-    @property
-    def is_single(self):
-        return self._single
-
-    @property
-    def empty(self):
-        return self._clause == []
 
 
 class PlanningProblemEncoder(object):
@@ -297,36 +231,4 @@ class PlanningProblemEncoder(object):
     def propositional_formulas(self):
         return self._propositional_formulas
  
-if __name__ == "__main__":
-    
-    domain = sys.argv[1] 
-    problem = sys.argv[2]
-    
-    parser = PDDL_Parser()
 
-    t= time.time()
-    parser.parse_domain(domain)
-    parser.parse_problem(problem)
-
-
-    # change length according to plan estimation
-    i=0
-    sat = False
-    while not sat:
-      # change length according to plan estimation
-      print('no plan found of length = ',i)
-      i+=1
-      pb = PlanningProblemEncoder(parser, length = i, immutable_predicates = []) 
-    
-      indexing, clauses = pb.formulas_to_sat()
-    
-      sat_solver = Solver()
-      sat_solver.add_clauses(clauses)
-      sat, valuation = sat_solver.solve()
-    
-    plan = pb.build_plan(valuation, indexing)
-    print('time needed for execution :', time.time()-t)
-    print("Plan found !")
-    for act, *objs in plan:
-        print(f'{act} --> {objs}')
-    
