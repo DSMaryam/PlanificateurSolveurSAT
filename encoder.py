@@ -8,7 +8,6 @@ module_path = os.path.abspath(os.path.join(os.path.dirname(sys.argv[0]), './pddl
 sys.path.append(module_path)
 from PDDL import PDDL_Parser
 
-
 class Operator(Enum):
     AND = 0,
     OR = 1,
@@ -71,26 +70,17 @@ class Clause(object):
 
 class PlanningProblemEncoder(object):
 
-    def __init__(self, parser,immutable_predicates = ['can_move_on_top','can_place_on_top'], length=1):
+    def __init__(self, parser, immutable_predicates = ['adjacent'], length=1, type_container = True):
         self._problem = parser
         self.predicates = {key : list(item.values()) for key, item \
                            in self._problem.predicates.items()}
-        self._set_hierarchy()
+        if type_container:
+            self._set_hierarchy()
         self._length = length
-        self.action_encoding = {act.name : act \
-                                for act in self._problem.actions}
         self.immutable_predicates = immutable_predicates
+        self.variables = set()
         self._propositional_formulas = self._encode()
         
-    
-    def _set_actions(self):
-        action_variables = dict()
-        for action in self._problem.actions:
-            action_variables[action.name] = dict()
-            for params in action.parameters:
-                var, t = params
-                action_variables[action.name][var] = t
-        self.action_variables = actions
         
     def _set_hierarchy(self):
         objs = []
@@ -98,16 +88,22 @@ class PlanningProblemEncoder(object):
             objs += self._problem.objects[_type]
         self._problem.objects['object'] = objs
     
+    def _extract_fluent(self, pred):
+        fluent = []
+        types = self.predicates[pred]
+        degree = len(types)
+        if degree == 1:
+            t = types[0]
+            fluent += [(pred, obj) for obj in self._problem.objects[t]]
+        else :
+            iterables = [self._problem.objects[t] for t in types]
+            fluent += [(pred, *objs) for objs in product(*iterables)]
+        return fluent
+    
     def _extract_fluents(self):
         fluents = []
-        for pred, types in self.predicates.items():
-            degree = len(types)
-            if degree == 1:
-                t = types[0]
-                fluents += [(pred, obj) for obj in self._problem.objects[t]]
-            else :
-                iterables = [self._problem.objects[t] for t in types]
-                fluents += [(pred, *objs) for objs in product(*iterables)]
+        for pred in self.predicates:
+            fluents += self._extract_fluent(pred)
         return fluents
     
     def _get_ground_operators(self) :
@@ -123,23 +119,28 @@ class PlanningProblemEncoder(object):
         fluents = self._extract_fluents()
 
         # 1. encode initial state
-        init_state = list(self._problem.state)
+        init_state = self._problem.state
         init_state_clauses = []
         for fluent in fluents:
+            self.variables.add(fluent + ('0',))
             if fluent not in init_state:
-                fluent = ('not',) + fluent
-            fluent = fluent + ('0',)
+                fluent = ('not',) + fluent + ('0',)
+            else :
+                fluent = fluent + ('0',)
             init_state_clauses.append(Clause(fluent))
 
         # 2. encode goal state
         goal_state = list(self._problem.positive_goals)
         goal_state_clauses = []
         for goal in goal_state:
+            self.variables.add(goal + (str(self._length),))
             goal_state_clauses.append(Clause(goal + (str(self._length),)))
         
         goal_state = list(self._problem.negative_goals)
         for goal in goal_state:
-            goal_state_clauses.append(Clause(('not', goal + (str(self._length),))))
+            self.variables.add(goal + (str(self._length),))
+            goal = ('not',) + goal
+            goal_state_clauses.append(Clause( goal + (str(self._length),)))
 
         enc_actions_clauses = []
         explanatory_frame_axioms = []
@@ -150,23 +151,27 @@ class PlanningProblemEncoder(object):
             for act in actions:
                 if act.add_effects.issubset(act.positive_preconditions):
                     continue
-                action_tuple = ('not', act.name,*act.parameters, str(step))
+                self.variables.add((act.name, *act.parameters, str(step)))
+                action_tuple = ('not', act.name, *act.parameters, str(step))
                 # preconditions
                 for p in act.positive_preconditions:
                     if any(pred in p for pred in self.immutable_predicates) :# maybe predicates that are always true (domain dependant)
                         continue
                     action_clause = Clause(action_tuple)
                     p = p + (str(step),)
+                    self.variables.add(p)
                     action_clause.add(p, Operator.OR)
                     enc_actions_clauses.append(action_clause)
                 # positive effects
                 for e in act.add_effects:
                     e = e + (str(step + 1),)
+                    self.variables.add(e)
                     action_clause = Clause(action_tuple)
                     action_clause.add(e, Operator.OR)
                     enc_actions_clauses.append(action_clause)
                 # negative effects
                 for e in act.del_effects:
+                    self.variables.add(e + (str(step + 1),))
                     e = ('not',) + e + (str(step + 1),)
                     action_clause = Clause(action_tuple)
                     action_clause.add(e, Operator.OR)
@@ -185,6 +190,8 @@ class PlanningProblemEncoder(object):
                         act_with_neg_effect.append(act)
                 if act_with_pos_effect:
                     a_pos = fluent + (str(step),)
+                    self.variables.add(a_pos)
+                    self.variables.add(fluent + (str(step + 1),))
                     b_pos = ('not',) + fluent + (str(step + 1),)
                     clause_pos = Clause(a_pos)
                     clause_pos.add(b_pos, Operator.OR)
@@ -195,6 +202,8 @@ class PlanningProblemEncoder(object):
                 if act_with_neg_effect:
                     a_neg = ('not',) + fluent + (str(step),)
                     b_neg = fluent + (str(step + 1),)
+                    self.variables.add(b_neg)
+                    self.variables.add(fluent + (str(step),))
                     clause_neg = Clause(a_neg)
                     clause_neg.add(b_neg, Operator.OR)
                     for act in act_with_neg_effect:
@@ -210,8 +219,10 @@ class PlanningProblemEncoder(object):
                 if action_pair[1].add_effects.issubset(
                         action_pair[1].positive_preconditions):
                     continue
-                action0_tuple = ('not', action_pair[0].name,*action_pair[0].parameters, str(step))
-                action1_tuple = ('not', action_pair[1].name,*action_pair[1].parameters, str(step))
+                self.variables.add((action_pair[0].name, *action_pair[0].parameters, str(step)))
+                self.variables.add((action_pair[1].name, *action_pair[1].parameters, str(step)))
+                action0_tuple = ('not', action_pair[0].name, *action_pair[0].parameters, str(step))
+                action1_tuple = ('not', action_pair[1].name, *action_pair[1].parameters, str(step))
                 action_pair_clause = Clause(action0_tuple)
                 action_pair_clause.add(action1_tuple, Operator.OR)
                 complete_exclusion_axiom.append(action_pair_clause)
@@ -223,14 +234,11 @@ class PlanningProblemEncoder(object):
         return proposition_formulas
 
     def _sat_indexing(self):
-        idx = 0
-        variables = set()
-        for clause in self.propositional_formulas:
-            v = clause.clause[0::2]
-            v = list(map(lambda l : l[1:] if l[0] == 'not' else l, v))
-            variables = variables.union(v)
-        variables = list(variables)
-        indexing = {variables[i] : i + 1 for i in range(len(variables))}
+        i = 1
+        indexing = dict()
+        for var in self.variables:
+            indexing[var] = i
+            i+=1
         return indexing
     
     def formulas_to_sat(self):
@@ -251,7 +259,7 @@ class PlanningProblemEncoder(object):
             cl = []
             for literal in v:
                 sign = 1
-                if literal [0] == 'not' :
+                if literal[0] == 'not' :
                     sign = -1
                     _, *literal = literal
                 cl.append(sign * indexing[tuple(literal)])
@@ -276,20 +284,26 @@ if __name__ == "__main__":
     
     parser = PDDL_Parser()
     
-    parser.parse_domain('examples/child_snack_domain.pddl')
-    parser.parse_problem('examples/child_snack_problem.pddl')
+    parser.parse_domain('examples/domain_recipies.pddl')
+    parser.parse_problem('examples/pb_tartiflette.pddl')
 
     # change length according to plan estimation
-    pb = PlanningProblemEncoder(parser, length = 5) 
+    i=0
+    sat = False
+    while not sat:
+      # change length according to plan estimation
+      print('no plan found of length = ',i)
+      i+=1
+      pb = PlanningProblemEncoder(parser, length = i) 
     
+      indexing, clauses = pb.formulas_to_sat()
     
-    indexing, clauses = pb.formulas_to_sat()
-    sat_solver = Solver()
-    sat_solver.add_clauses(clauses)
-    sat, valuation = sat_solver.solve()
-    if sat :
-        plan = pb.build_plan(valuation, indexing)
-        print("Plan found !")
-        for act, *objs in plan:
-            print(f'{act} --> {objs}')
+      sat_solver = Solver()
+      sat_solver.add_clauses(clauses)
+      sat, valuation = sat_solver.solve()
+    
+    plan = pb.build_plan(valuation, indexing)
+    print("Plan found !")
+    for act, *objs in plan:
+        print(f'{act} --> {objs}')
     
