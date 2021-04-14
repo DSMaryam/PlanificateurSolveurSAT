@@ -8,11 +8,10 @@ from PDDL import PDDL_Parser
 def check_plan(plan , parser):
     
     current_state  = parser.state
-    print(current_state)
+    names = [action.name for action in parser.actions]
     for action_name, *objects in plan:
-        action_id = [action.name for action in parser.actions].index(action_name)
+        action_id = names.index(action_name)
         action = list(parser.actions)[action_id]
-        #print(action)
         n = len(objects)
                 
         #objects_rep = {objects[i] : action.parameters[i][0]\
@@ -30,12 +29,13 @@ def check_plan(plan , parser):
         
         for cond, *objs  in action.positive_preconditions:
             objs = [objects_rep[obj] for obj in objs]
-            print(cond,*objs)
-            assert (cond, *objs) in current_state
+            if not (cond, *objs) in current_state:
+                return False
         
         for cond, *objs  in action.negative_preconditions:
             objs = [objects_rep[obj] for obj in objs]
-            assert (cond, *objs) not  in current_state
+            if not (cond, *objs) not  in current_state:
+                return False
         
         add_effects = []
         for cond, *objs  in action.add_effects:
@@ -50,8 +50,10 @@ def check_plan(plan , parser):
         current_state = current_state.union(frozenset(add_effects))
         current_state = current_state.difference(frozenset(del_effects))
         
-    assert all(state in current_state for state in parser.positive_goals)
-    assert all(state not in current_state for state in parser.negative_goals)
+    if not all(state in current_state for state in parser.positive_goals): 
+        return False
+    if not all(state not in current_state for state in parser.negative_goals):
+        return False
     
     return True
         
@@ -65,51 +67,51 @@ if __name__ == "__main__":
     """
     e.g of optimal plans for other problems 
     
-    plan = [(2, 'jack_black', 'end_col_2'),
-            (2, 'jack_red', 'end_col_1'),
-            (1, 'king_red', 'queen_black', 'base_col_3'),
-            (3, 'queen_black','base_col_2', 'jack_black'),
-            (3, 'king_black', 'queen_red', 'queen_black'),
-            (3, 'queen_red', 'base_col_1', 'jack_red'),
-            (3, 'king_red', 'base_col_3', 'queen_red')]
+    plan = [('place_from_deck', 'jack_black', 'end_col_2'),
+            ('place_from_deck', 'jack_red', 'end_col_1'),
+            ('from_base_to_base', 'king_red', 'queen_black', 'base_col_3'),
+            ('place_from_base', 'queen_black','base_col_2', 'jack_black'),
+            ('place_from_base', 'king_black', 'queen_red', 'queen_black'),
+            ('place_from_base', 'queen_red', 'base_col_1', 'jack_red'),
+            ('place_from_base', 'king_red', 'base_col_3', 'queen_red')]
     
-    plan = [(4, 'queen_red', 'end_col_1', 'king_black'),
-            (1, 'jack_black', 'ten_black', 'queen_red'),
-            (3, 'ten_black', 'base_col_2', 'end_col_2'),
-            (3, 'jack_black','queen_red', 'ten_black'),
-            (3, 'queen_red', 'king_black', 'end_col_1'),
-            (2, 'king_red', 'queen_red'),
-            (2, 'queen_black', 'jack_black'),
-            (3, 'king_black', 'base_col_1', 'queen_black')]
+    plan = [('return', 'queen_red', 'end_col_1', 'king_black'),
+            ('from_base_to_base', 'jack_black', 'ten_black', 'queen_red'),
+            ('place_from_base', 'ten_black', 'base_col_2', 'end_col_2'),
+            ('place_from_base', 'jack_black','queen_red', 'ten_black'),
+            ('place_from_base', 'queen_red', 'king_black', 'end_col_1'),
+            ('place_from_deck', 'king_red', 'queen_red'),
+            ('place_from_deck', 'queen_black', 'jack_black'),
+            ('place_from_base', 'king_black', 'base_col_1', 'queen_black')]
     """
-    plan = [(0, 'queen_red', 'king_black'),
-            (0, 'queen_black', 'king_red'),
-            (1, 'king_red', 'jack_red', 'base_col_4'),
-            (1, 'king_black','jack_black', 'base_col_3'),
-            (1, 'jack_black', 'ten_black', 'queen_red'),
-            (0, 'nine_red', 'ten_black'),
-            (1, 'ten_black', 'eight_black', 'jack_red'),
-            (1, 'eight_black', 'six_black', 'nine_red'),
-            (3, 'six_black', 'base_col_2', 'end_col_2'),
-            (2, 'seven_black', 'six_black'),
-            (3, 'eight_black', 'nine_red', 'seven_black'),
-            (1, 'jack_red','ten_red', 'queen_black'),
-            (0, 'nine_black', 'ten_red'),
-            (1, 'ten_red', 'eight_red', 'jack_black'), 
-            (1, 'eight_red','six_red', 'nine_black'),
-            (3, 'six_red', 'base_col_1', 'end_col_1'),
-            (2, 'seven_red', 'six_red'),
-            (3, 'eight_red', 'nine_black', 'seven_red'),  
-            (3, 'nine_black', 'ten_red', 'eight_black'),
-            (3, 'nine_red', 'ten_black', 'eight_red'),
-            (3, 'ten_black', 'jack_red', 'nine_black'),
-            (3, 'ten_red','jack_black', 'nine_red'),
-            (3, 'jack_black', 'queen_red', 'ten_black'),
-            (3, 'jack_red', 'queen_black', 'ten_red'),
-            (3, 'queen_black', 'king_red', 'jack_black'),
-            (3, 'queen_red', 'king_black', 'jack_red'),
-            (3, 'king_black', 'base_col_3', 'queen_black'),
-            (3, 'king_red', 'base_col_4', 'queen_red')
+    plan = [('from_deck_to_base', 'queen_red', 'king_black'),
+            ('from_deck_to_base', 'queen_black', 'king_red'),
+            ('from_base_to_base', 'king_red', 'jack_red', 'base_col_4'),
+            ('from_base_to_base', 'king_black','jack_black', 'base_col_3'),
+            ('from_base_to_base', 'jack_black', 'ten_black', 'queen_red'),
+            ('from_deck_to_base', 'nine_red', 'ten_black'),
+            ('from_base_to_base', 'ten_black', 'eight_black', 'jack_red'),
+            ('from_base_to_base', 'eight_black', 'six_black', 'nine_red'),
+            ('place_from_base', 'six_black', 'base_col_2', 'end_col_2'),
+            ('place_from_deck', 'seven_black', 'six_black'),
+            ('place_from_base', 'eight_black', 'nine_red', 'seven_black'),
+            ('from_base_to_base', 'jack_red','ten_red', 'queen_black'),
+            ('from_deck_to_base', 'nine_black', 'ten_red'),
+            ('from_base_to_base', 'ten_red', 'eight_red', 'jack_black'), 
+            ('from_base_to_base', 'eight_red','six_red', 'nine_black'),
+            ('place_from_base', 'six_red', 'base_col_1', 'end_col_1'),
+            ('place_from_deck', 'seven_red', 'six_red'),
+            ('place_from_base', 'eight_red', 'nine_black', 'seven_red'),  
+            ('place_from_base', 'nine_black', 'ten_red', 'eight_black'),
+            ('place_from_base', 'nine_red', 'ten_black', 'eight_red'),
+            ('place_from_base', 'ten_black', 'jack_red', 'nine_black'),
+            ('place_from_base', 'ten_red','jack_black', 'nine_red'),
+            ('place_from_base', 'jack_black', 'queen_red', 'ten_black'),
+            ('place_from_base', 'jack_red', 'queen_black', 'ten_red'),
+            ('place_from_base', 'queen_black', 'king_red', 'jack_black'),
+            ('place_from_base', 'queen_red', 'king_black', 'jack_red'),
+            ('place_from_base', 'king_black', 'base_col_3', 'queen_black'),
+            ('place_from_base', 'king_red', 'base_col_4', 'queen_red')
             
             ]
     print(check_plan(plan, parser))
