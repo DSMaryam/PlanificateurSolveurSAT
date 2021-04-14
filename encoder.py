@@ -1,11 +1,27 @@
 from itertools import *
 from clause import Operator, Clause
-
+from copy import deepcopy
 
 
 class PlanningProblemEncoder(object):
 
-    def __init__(self, parser, immutable_predicates = [], length=1, type_container = True):
+    def __init__(self, parser, length=1, type_container = True, immutable_predicates = []):
+        """
+        
+
+        Parameters
+        ----------
+        parser : parser instance that retrieved information from a PDDL problem
+                and its domain
+        length : length at which a plan is desired
+             The default is 1.
+        type_container : infer world objects global hierarchy
+            The default is True.
+        immutable_predicates : optional
+           Set of predicates that can't be changed during plan execution
+            The default is [].
+
+        """
         self._problem = parser
         self.predicates = {key : list(item.values()) for key, item \
                            in self._problem.predicates.items()}
@@ -16,14 +32,29 @@ class PlanningProblemEncoder(object):
         self.variables = set()
         self._propositional_formulas = self._encode()
         
-        
+    
     def _set_hierarchy(self):
+        """
+        Add 'object' type as a global type , since the parser can't infer the global type
+        of objects
+
+        """
         objs = []
         for _type in self._problem.objects:
             objs += self._problem.objects[_type]
         self._problem.objects['object'] = list(set(objs))
     
     def _extract_fluent(self, pred):
+        """
+    
+        Parameters
+        ----------
+        pred : predicate name
+
+        Extract all combinations of possible predicates with the given predicate name 
+        for all world objects
+
+        """
         fluent = []
         types = self.predicates[pred]
         degree = len(types)
@@ -42,6 +73,11 @@ class PlanningProblemEncoder(object):
         return fluents
     
     def _get_ground_operators(self) :
+        """
+        Extracts ground actions : all possible combinations of actions for all objects 
+        in the world
+
+        """
         ground_operators = []
         for action in self._problem.actions:
             action_g = action.groundify(self._problem.objects, \
@@ -49,8 +85,11 @@ class PlanningProblemEncoder(object):
             ground_operators += list(action_g)
         return ground_operators
                 
-                
     def _encode(self):
+        """
+        Generates the set of clauses for the SAT problem
+
+        """
         actions = self._get_ground_operators()
         fluents = self._extract_fluents()
 
@@ -135,37 +174,43 @@ class PlanningProblemEncoder(object):
                     explanatory_frame_axioms.append(clause)
                     continue
                 
+                pos_clause = Clause(fluent + (str(step), ))
+                self.variables.add(fluent + (str(step), ))
+                pos_clause.add(('not', ) + fluent + (str(step +1), ), Operator.OR)
+                self.variables.add( fluent + (str(step +1), ))
+                neg_clause = Clause(('not', ) + fluent + (str(step), ))
+                neg_clause.add(fluent + (str(step +1), ), Operator.OR)
+                
                 act_with_pos_effect = []
                 act_with_neg_effect = []
                 for act in actions:
-                    if act.add_effects.issubset(act.positive_preconditions):
-                        continue
                     if fluent in act.add_effects:
                         act_with_pos_effect.append(act)
                     elif fluent in act.del_effects:
                         act_with_neg_effect.append(act)
+                        
+                        
                 if act_with_pos_effect:
-                    a_pos = fluent + (str(step),)
-                    self.variables.add(a_pos)
-                    self.variables.add(fluent + (str(step + 1),))
-                    b_pos = ('not',) + fluent + (str(step + 1),)
-                    clause_pos = Clause(a_pos)
-                    clause_pos.add(b_pos, Operator.OR)
+                    
+                    pos_clause_ = deepcopy(pos_clause)
                     for act in act_with_pos_effect:
-                        c_pos = (act.name, *act.parameters,  str(step))
-                        clause_pos.add(c_pos, Operator.OR)
-                    explanatory_frame_axioms.append(clause_pos)
+                        act_pos = (act.name, *act.parameters,  str(step))
+                        pos_clause_.add(act_pos, Operator.OR)
+                    explanatory_frame_axioms.append(pos_clause_)
+                    
+                else :
+                    explanatory_frame_axioms.append(pos_clause)
+                    
                 if act_with_neg_effect:
-                    a_neg = ('not',) + fluent + (str(step),)
-                    b_neg = fluent + (str(step + 1),)
-                    self.variables.add(b_neg)
-                    self.variables.add(fluent + (str(step),))
-                    clause_neg = Clause(a_neg)
-                    clause_neg.add(b_neg, Operator.OR)
+                    
+                    neg_clause_ = deepcopy(neg_clause)
                     for act in act_with_neg_effect:
-                        c_neg = (act.name, *act.parameters, str(step))
-                        clause_neg.add(c_neg, Operator.OR)
-                    explanatory_frame_axioms.append(clause_neg)
+                        act_neg = (act.name, *act.parameters, str(step))
+                        neg_clause_.add(act_neg, Operator.OR)
+                    explanatory_frame_axioms.append(neg_clause_)
+                
+                else:
+                    explanatory_frame_axioms.append(neg_clause)
 
             # 5. complete exclusion axiom
             for action_pair in combinations(actions, 2):
@@ -198,9 +243,9 @@ class PlanningProblemEncoder(object):
         -------     
         indexing : Dict
             Keys : Set of variables in boolean SAT problem.
-            Values : How every variable is encoded as int type.
+            Values : Int type index for every variable.
         clauses : List
-            Clauses to satisfy (respect the CryptoMiniSat format.
+            Clauses to satisfy (with respect the CryptoMiniSat format).
 
         """
         indexing = self._sat_indexing()
@@ -231,4 +276,6 @@ class PlanningProblemEncoder(object):
     def propositional_formulas(self):
         return self._propositional_formulas
  
+
+
 

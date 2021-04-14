@@ -9,11 +9,9 @@ sys.path.append(module_path)
 from PDDL import PDDL_Parser
 
 
-
- 
 if __name__ == "__main__":
     
-    domain = sys.argv[1] 
+    domain = sys.argv[1]
     problem = sys.argv[2]
     
     parser = PDDL_Parser()
@@ -30,7 +28,12 @@ if __name__ == "__main__":
       # change length according to plan estimation
       print('no plan found of length = ',i)
       i+=1
-      pb = PlanningProblemEncoder(parser, length = i, immutable_predicates = []) 
+      
+      ## CHANGE THE IMMUTABLE PREDICATES IF YOU CHANGE THE PROBLEM ##
+      # or simply just delete the parameter if you don't know the problem
+      
+      pb = PlanningProblemEncoder(parser, length = i, immutable_predicates = \
+                                  ['can_move_on_top', 'can_place_on_top'] )
     
       indexing, clauses = pb.formulas_to_sat()
     

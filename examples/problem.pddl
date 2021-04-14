@@ -60,8 +60,4 @@
   (and
      (placed king_red)
      (placed king_black)
-     (placed queen_red)
-     (placed queen_black)
-     (placed jack_red)
-     (placed jack_black)
 )))

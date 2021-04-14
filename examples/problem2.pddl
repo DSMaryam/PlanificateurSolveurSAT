@@ -2,24 +2,14 @@
  (:domain solitaire)
  (:objects
      king_red - card 
-     king_red - object
      queen_red - card
-     queen_red - object
      king_black - card 
-     king_black - object
-     base_col_1 - object
      base_col_1 - column 
-     base_col_2 - object
      base_col_2 - column
-     end_col_1 - object
      end_col_1 - column
-     end_col_2 - object
      end_col_2 - column
-     jack_black - object
      jack_black - card
-     ten_black - object
      ten_black - card
-     queen_black - object
      queen_black - card 
      
 )
@@ -68,8 +58,4 @@
   (and
      (placed king_red)
      (placed king_black)
-     (placed queen_red)
-     (placed queen_black)
-     (placed ten_black)
-     (placed jack_black)
 )))

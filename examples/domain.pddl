@@ -37,6 +37,7 @@
              :precondition (and (not (placed ?c) ) (ondeck ?c) (free ?o) (can_place_on_top ?c ?o) (placed ?o))
              :effect (and (free ?c)
 	     	     	  (not (free ?o))
+	     	     	  (not (ondeck ?c))
                 (on ?c ?o)
                 (placed ?c))
 )
@@ -44,6 +45,7 @@
              :parameters (?c - card ?o1 - object ?o2 - object )
              :precondition (and (not (placed ?c) ) (on ?c ?o1) (free ?c) (free ?o2) (can_place_on_top ?c ?o2) (placed ?o2))
              :effect (and (free ?o1)
+             
 	     	    (not (free ?o2))
                 (on ?c ?o2)
                 (not (on ?c ?o1))
