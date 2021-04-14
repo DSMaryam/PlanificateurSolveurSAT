@@ -1,4 +1,5 @@
 from enum import Enum
+import time 
 from itertools import *
 from pycryptosat import Solver
 
@@ -70,7 +71,7 @@ class Clause(object):
 
 class PlanningProblemEncoder(object):
 
-    def __init__(self, parser, immutable_predicates = ['adjacent'], length=1, type_container = True):
+    def __init__(self, parser, immutable_predicates = [], length=1, type_container = True):
         self._problem = parser
         self.predicates = {key : list(item.values()) for key, item \
                            in self._problem.predicates.items()}
@@ -86,7 +87,7 @@ class PlanningProblemEncoder(object):
         objs = []
         for _type in self._problem.objects:
             objs += self._problem.objects[_type]
-        self._problem.objects['object'] = objs
+        self._problem.objects['object'] = list(set(objs))
     
     def _extract_fluent(self, pred):
         fluent = []
@@ -97,7 +98,7 @@ class PlanningProblemEncoder(object):
             fluent += [(pred, obj) for obj in self._problem.objects[t]]
         else :
             iterables = [self._problem.objects[t] for t in types]
-            fluent += [(pred, *objs) for objs in product(*iterables)]
+            fluent += [(pred, *objs) for objs in product(*iterables) if len(objs) == len(set(objs)) ]
         return fluent
     
     def _extract_fluents(self):
@@ -109,7 +110,8 @@ class PlanningProblemEncoder(object):
     def _get_ground_operators(self) :
         ground_operators = []
         for action in self._problem.actions:
-            action_g = action.groundify(self._problem.objects, {}) #TODO
+            action_g = action.groundify(self._problem.objects, \
+                                        {}) #TODO
             ground_operators += list(action_g)
         return ground_operators
                 
@@ -153,15 +155,23 @@ class PlanningProblemEncoder(object):
                     continue
                 self.variables.add((act.name, *act.parameters, str(step)))
                 action_tuple = ('not', act.name, *act.parameters, str(step))
-                # preconditions
+                
+                # pos preconditions
                 for p in act.positive_preconditions:
-                    if any(pred in p for pred in self.immutable_predicates) :# maybe predicates that are always true (domain dependant)
-                        continue
                     action_clause = Clause(action_tuple)
                     p = p + (str(step),)
                     self.variables.add(p)
                     action_clause.add(p, Operator.OR)
                     enc_actions_clauses.append(action_clause)
+                    
+                # neg preconditions
+                for p in act.negative_preconditions:
+                    action_clause = Clause(action_tuple)
+                    p = ('not', ) + p + (str(step),)
+                    self.variables.add(p)
+                    action_clause.add(p, Operator.OR)
+                    enc_actions_clauses.append(action_clause)
+                    
                 # positive effects
                 for e in act.add_effects:
                     e = e + (str(step + 1),)
@@ -179,6 +189,18 @@ class PlanningProblemEncoder(object):
 
             # 4. explanatory frame axioms
             for fluent in fluents:
+                
+                if fluent[0] in self.immutable_predicates and fluent in init_state:
+                    self.variables.add(fluent + (str(step),))
+                    clause = Clause(fluent + (str(step),))
+                    explanatory_frame_axioms.append(clause)
+                    continue
+                elif fluent[0] in self.immutable_predicates and fluent not in init_state:
+                    self.variables.add(fluent + (str(step),))
+                    clause = Clause(('not', ) + fluent + (str(step),))
+                    explanatory_frame_axioms.append(clause)
+                    continue
+                
                 act_with_pos_effect = []
                 act_with_neg_effect = []
                 for act in actions:
@@ -213,12 +235,7 @@ class PlanningProblemEncoder(object):
 
             # 5. complete exclusion axiom
             for action_pair in combinations(actions, 2):
-                if action_pair[0].add_effects.issubset(
-                        action_pair[0].positive_preconditions):
-                    continue
-                if action_pair[1].add_effects.issubset(
-                        action_pair[1].positive_preconditions):
-                    continue
+
                 self.variables.add((action_pair[0].name, *action_pair[0].parameters, str(step)))
                 self.variables.add((action_pair[1].name, *action_pair[1].parameters, str(step)))
                 action0_tuple = ('not', action_pair[0].name, *action_pair[0].parameters, str(step))
@@ -282,10 +299,15 @@ class PlanningProblemEncoder(object):
  
 if __name__ == "__main__":
     
-    parser = PDDL_Parser()
+    domain = sys.argv[1] 
+    problem = sys.argv[2]
     
-    parser.parse_domain('examples/domain_recipies.pddl')
-    parser.parse_problem('examples/pb_tartiflette.pddl')
+    parser = PDDL_Parser()
+
+    t= time.time()
+    parser.parse_domain(domain)
+    parser.parse_problem(problem)
+
 
     # change length according to plan estimation
     i=0
@@ -294,7 +316,7 @@ if __name__ == "__main__":
       # change length according to plan estimation
       print('no plan found of length = ',i)
       i+=1
-      pb = PlanningProblemEncoder(parser, length = i) 
+      pb = PlanningProblemEncoder(parser, length = i, immutable_predicates = []) 
     
       indexing, clauses = pb.formulas_to_sat()
     
@@ -303,6 +325,7 @@ if __name__ == "__main__":
       sat, valuation = sat_solver.solve()
     
     plan = pb.build_plan(valuation, indexing)
+    print('time needed for execution :', time.time()-t)
     print("Plan found !")
     for act, *objs in plan:
         print(f'{act} --> {objs}')

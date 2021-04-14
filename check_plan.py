@@ -1,4 +1,5 @@
 import sys, os
+
 # Make sure you have cloned pddl-parser git repo 
 module_path = os.path.abspath(os.path.join(os.path.dirname(__file__), './pddl-parser'))
 sys.path.append(module_path)
