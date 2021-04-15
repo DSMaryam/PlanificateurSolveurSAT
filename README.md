@@ -15,9 +15,16 @@ Then, install the CryptoMiniSat solver. The following pip package provides bindi
 ## Execution :
 To execute the solver, simply run the main program on an instance of your choice, using the following command line:
 
-```python3 main.py domain.pddl problem.pddl```
+```python3 main.py --domain domain.pddl --problem problem.pddl --immutablepreds immutablepreds ```
 
 Where :    
 
 ```domain.pddl```  : The file describing the domain                         
 ```problem.pddl```  : The file describing the problem
+```immutablepreds``` : (Optional) List of immutable predicates 
+
+## Modules :
+* ```main.py``` : used for execution
+* ```clause.py``` : class for manipulating clause objects, implements adding litterals
+* ```encoder.py``` : encode and decode a planning problem into a sat problem
+* ```check_plan.py``` : check validity of a plan 

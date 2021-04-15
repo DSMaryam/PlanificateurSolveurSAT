@@ -15,24 +15,21 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser('argument for training')
     parser.add_argument('--domain', type=str, help='domain.pddl')
     parser.add_argument('--problem', type=str, help='problem.pddl')
-    parser.add_argument('--immutablepreds', type=list, default=[['can_move_on_top'], ['can_place_on_top']], help='immutable predicates',nargs='+')
+    parser.add_argument('--immutablepreds', type=list, default=['can_move_on_top', 'can_place_on_top'], help='immutable predicates',nargs='+')
     opt = parser.parse_args()
 
     domain = opt.domain
     problem = opt.problem
 
-    immutable_predicates=[]
-    for i in opt.immutablepreds:
-        immutable_predicates.append(i[0])
-    
+    immutable_predicates=opt.immutablepreds
+
     parser = PDDL_Parser()
 
-    t= time.time()
     parser.parse_domain(domain)
     parser.parse_problem(problem)
 
-
-
+    
+    t= time.time()
     step=0
     sat = False
     ## CHANGE THE IMMUTABLE PREDICATES IF YOU CHANGE THE PROBLEM ##
