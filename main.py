@@ -7,12 +7,23 @@ import sys, os
 module_path = os.path.abspath(os.path.join(os.path.dirname(__file__), './pddl-parser'))
 sys.path.append(module_path)
 from PDDL import PDDL_Parser
+import argparse
 
 
-if __name__ == "__main__":
-    
-    domain = sys.argv[1]
-    problem = sys.argv[2]
+if __name__ == "__main__":   
+
+    parser = argparse.ArgumentParser('argument for training')
+    parser.add_argument('--domain', type=str, help='domain.pddl')
+    parser.add_argument('--problem', type=str, help='problem.pddl')
+    parser.add_argument('--immutablepreds', type=list, default=[['can_move_on_top'], ['can_place_on_top']], help='immutable predicates',nargs='+')
+    opt = parser.parse_args()
+
+    domain = opt.domain
+    problem = opt.problem
+
+    immutable_predicates=[]
+    for i in opt.immutablepreds:
+        immutable_predicates.append(i[0])
     
     parser = PDDL_Parser()
 
@@ -27,8 +38,7 @@ if __name__ == "__main__":
     ## CHANGE THE IMMUTABLE PREDICATES IF YOU CHANGE THE PROBLEM ##
     # or simply just delete the parameter if you don't know the problem
       
-    pb = PlanningProblemEncoder(parser, immutable_predicates = \
-                                  ['can_move_on_top', 'can_place_on_top'] )
+    pb = PlanningProblemEncoder(parser, immutable_predicates = immutable_predicates)
     
     while not sat:
       # add length until satisfaction
