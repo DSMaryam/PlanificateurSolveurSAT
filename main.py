@@ -11,8 +11,8 @@ from PDDL import PDDL_Parser
 
 if __name__ == "__main__":
     
-    domain = sys.argv[1]
-    problem = sys.argv[2]
+    domain = sys.argv[0]
+    problem = sys.argv[1]
     
     parser = PDDL_Parser()
 
