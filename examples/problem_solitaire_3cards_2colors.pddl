@@ -27,7 +27,8 @@
   (free jack_club)
   (free queen_club)
   (free king_diamond)
-  (free end_col)
+  (free end_col_2)
+  (free end_col_1)
 
   ; rules 
   (can_place_on_top jack_club end_col_1)

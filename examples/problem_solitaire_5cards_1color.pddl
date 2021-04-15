@@ -21,7 +21,7 @@
   (ondeck jack)
   (ondeck king)
   (free queen)
-  (free 9)
+  (free nine)
   (free end_col)
 
 ; regles 

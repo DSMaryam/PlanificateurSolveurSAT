@@ -11,8 +11,8 @@ from PDDL import PDDL_Parser
 
 if __name__ == "__main__":
     
-    domain = sys.argv[0]
-    problem = sys.argv[1]
+    domain = sys.argv[1]
+    problem = sys.argv[2]
     
     parser = PDDL_Parser()
 
@@ -21,29 +21,28 @@ if __name__ == "__main__":
     parser.parse_problem(problem)
 
 
-    # change length according to plan estimation
-    i=0
+
+    step=0
     sat = False
-    while not sat:
-      # change length according to plan estimation
-      print('no plan found of length = ',i)
-      i+=1
+    ## CHANGE THE IMMUTABLE PREDICATES IF YOU CHANGE THE PROBLEM ##
+    # or simply just delete the parameter if you don't know the problem
       
-      ## CHANGE THE IMMUTABLE PREDICATES IF YOU CHANGE THE PROBLEM ##
-      # or simply just delete the parameter if you don't know the problem
-      
-      pb = PlanningProblemEncoder(parser, length = i, immutable_predicates = \
+    pb = PlanningProblemEncoder(parser, immutable_predicates = \
                                   ['can_move_on_top', 'can_place_on_top'] )
     
+    while not sat:
+      # add length until satisfaction
+      print('no plan found of length = ',step)
+      pb.add_step(step)
+      step+=1
       indexing, clauses = pb.formulas_to_sat()
-    
       sat_solver = Solver()
       sat_solver.add_clauses(clauses)
       sat, valuation = sat_solver.solve()
     
     plan = pb.build_plan(valuation, indexing)
     print('time needed for execution :', time.time()-t)
-    print("Plan found !")
+    print(f"Plan found of length {step}!")
     for act, *objs in plan:
         print(f'{act} --> {objs}')
     
