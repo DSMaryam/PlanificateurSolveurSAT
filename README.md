@@ -20,7 +20,7 @@ To execute the solver, simply run the main program on an instance of your choice
 Where :    
 
 ```domain.pddl```  : The file describing the domain                         
-```problem.pddl```  : The file describing the problem
+```problem.pddl```  : The file describing the problem                             
 ```immutablepreds``` : (Optional) List of immutable predicates 
 
 ## Modules :
