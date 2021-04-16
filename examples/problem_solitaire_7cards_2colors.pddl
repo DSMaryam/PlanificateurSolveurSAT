@@ -1,4 +1,4 @@
-(define (problem solitaire_7_2_constrained)
+(define (problem solitaire_7_2_unconstrained)
  (:domain solitaire)
  (:objects 
     king_club - card
@@ -22,20 +22,24 @@
     end_col_1 - column
     end_col_2 - column
 )
- (:init 
+(:init 
     ; initial placement
   (on nine_diamond base_col_1)
 
-  (on seven_club base_col_2)
-  (on king_diamond seven_club)
+  (on king_diamond base_col_2)
+  (on seven_club king_diamond)
 
   (on jack_diamond base_col_3)
   (on ten_diamond jack_diamond)
-  (on queen_club jack_diamond)
+  (on queen_club ten_diamond)
+  
+  (hidden king_diamond)
+  (hidden jack_diamond)
+  (hidden ten_diamond)
 
   (free nine_diamond)
   (free seven_club)
-  (free jack_diamond)
+  (free queen_club)
 
   (ondeck seven_diamond)
   (ondeck eight_club)
@@ -45,6 +49,9 @@
   (ondeck jack_club)
   (ondeck queen_diamond)
   (ondeck king_club)
+  
+  (free end_col_1)
+  (free end_col_2)
 
   ; rules 
   (can_place_on_top seven_diamond end_col_2)
@@ -80,26 +87,26 @@
   (can_move_on_top nine_diamond ten_club)
   (can_move_on_top eight_club nine_diamond)
   (can_move_on_top seven_diamond eight_club)
-
-  (can_move_on_top queen_diamond king_diamond)
-  (can_move_on_top jack_diamond queen_diamond)
-  (can_move_on_top ten_club jack_diamond)
-  (can_move_on_top nine_diamond ten_diamond)
-  (can_move_on_top eight_diamond nine_diamond)
-  (can_move_on_top seven_diamond eight_diamond)
-
+  
   (can_move_on_top queen_club king_club)
   (can_move_on_top jack_club queen_club)
-  (can_move_on_top ten_club ten_club)
+  (can_move_on_top ten_club jack_club)
   (can_move_on_top nine_club ten_club)
   (can_move_on_top eight_club nine_club)
   (can_move_on_top seven_club eight_club)
+  
+  (can_move_on_top queen_diamond king_diamond)
+  (can_move_on_top jack_diamond queen_diamond)
+  (can_move_on_top ten_diamond jack_diamond)
+  (can_move_on_top nine_diamond ten_diamond)
+  (can_move_on_top eight_diamond nine_diamond)
+  (can_move_on_top seven_diamond eight_diamond)
 
   (placed end_col_1)  
   (placed end_col_2)
 )
  
-(:goal
-     (placed king_diamond)
-     (placed king_club)
-))
+  (:goal
+    (and (placed king_diamond) (placed king_club))
+)
+)
