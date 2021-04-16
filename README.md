@@ -5,7 +5,7 @@ This repository implements a SAT approach for solving planning problems , usuall
 ## User guide :
 First, you need to load a PDDL parser module , run the following command line:      
 
-```git clone https://github.com/pucrs-automated-planning/pddl-parser.git```
+```git clone https://github.com/diniaa/pddl-parser.git```
 
 This module comes with useful description of the PDDL problem as well as methods used for implementing the solver.                      
 Then, install the CryptoMiniSat solver. The following pip package provides bindings to the solver :
