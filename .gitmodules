@@ -1,0 +1,3 @@
+[submodule "pddl-parser"]
+	path = pddl-parser
+	url = ./pddl-parser
