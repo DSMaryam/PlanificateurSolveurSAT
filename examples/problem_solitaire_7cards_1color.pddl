@@ -18,10 +18,13 @@
  (:init 
 ; placements initiaux
   (on eight base_col_1)
-  (on jack base_col_1)
+  (on jack base_col_2)
   (on king jack)
+  (hidden jack)
   (ondeck queen)
   (ondeck ten)
+  (ondeck seven)
+  (ondeck nine)
   (free king)
   (free eight)
   (free end_col)
