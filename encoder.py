@@ -5,7 +5,7 @@ from copy import deepcopy
 
 class PlanningProblemEncoder(object):
 
-    def __init__(self, parser, length=1, type_container = True, immutable_predicates = []):
+    def __init__(self, parser, set_hierarchy = True, immutable_predicates = []):
         """
         
 
@@ -13,8 +13,6 @@ class PlanningProblemEncoder(object):
         ----------
         parser : parser instance that retrieved information from a PDDL problem
                 and its domain
-        length : length at which a plan is desired
-             The default is 1.
         type_container : infer world objects global hierarchy
             The default is True.
         immutable_predicates : optional
@@ -25,12 +23,15 @@ class PlanningProblemEncoder(object):
         self._problem = parser
         self.predicates = {key : list(item.values()) for key, item \
                            in self._problem.predicates.items()}
-        if type_container:
+        if set_hierarchy:
             self._set_hierarchy()
-        self._length = length
         self.immutable_predicates = immutable_predicates
         self.variables = set()
-        self._propositional_formulas = self._encode()
+        self.actions = self._get_ground_operators()
+        self.fluents = self._extract_fluents()
+        
+        # When initilising the encoder , we enode the initial state as clauses
+        self._propositional_formulas = self._encode_init()
         
     
     def _set_hierarchy(self):
@@ -63,7 +64,7 @@ class PlanningProblemEncoder(object):
             fluent += [(pred, obj) for obj in self._problem.objects[t]]
         else :
             iterables = [self._problem.objects[t] for t in types]
-            fluent += [(pred, *objs) for objs in product(*iterables) if len(objs) == len(set(objs)) ]
+            fluent += [(pred, *objs) for objs in product(*iterables) if len(set(objs)) == len(objs)]
         return fluent
     
     def _extract_fluents(self):
@@ -81,109 +82,111 @@ class PlanningProblemEncoder(object):
         ground_operators = []
         for action in self._problem.actions:
             action_g = action.groundify(self._problem.objects, \
-                                        {}) #TODO
+                                        {}) 
             ground_operators += list(action_g)
         return ground_operators
-                
-    def _encode(self):
-        """
-        Generates the set of clauses for the SAT problem
-
-        """
-        actions = self._get_ground_operators()
-        fluents = self._extract_fluents()
-
-        # 1. encode initial state
-        init_state = self._problem.state
+    
+    def _encode_init(self):
+        # 1. Encode initial states : every fluent in the initial state 
+        # should be True at step 0 and vice versa
+        
+        self.init_state = self._problem.state
         init_state_clauses = []
-        for fluent in fluents:
-            self.variables.add(fluent + ('0',))
-            if fluent not in init_state:
+        for fluent in self.fluents:
+            if fluent not in self.init_state:
                 fluent = ('not',) + fluent + ('0',)
             else :
                 fluent = fluent + ('0',)
             init_state_clauses.append(Clause(fluent))
+        return init_state_clauses
+    
+    def add_step(self, step):
+        """
+        Generates the set of clauses for the SAT problem corresponding to 
+        a step increment
 
-        # 2. encode goal state
-        goal_state = list(self._problem.positive_goals)
+        """
+        # 2. Encode goal state : every fluent in the goal state 
+        # should be set True at final step
+        
+        goal_state = list(self._problem.positive_goals) #pos goals
         goal_state_clauses = []
         for goal in goal_state:
-            self.variables.add(goal + (str(self._length),))
-            goal_state_clauses.append(Clause(goal + (str(self._length),)))
+            goal_state_clauses.append(Clause(goal + (str(step + 1),)))
         
-        goal_state = list(self._problem.negative_goals)
+        goal_state = list(self._problem.negative_goals) #neg goals
         for goal in goal_state:
-            self.variables.add(goal + (str(self._length),))
             goal = ('not',) + goal
-            goal_state_clauses.append(Clause( goal + (str(self._length),)))
+            goal_state_clauses.append(Clause( goal + (str(step + 1),)))
+        self.current_goal_clauses = goal_state_clauses
 
-        enc_actions_clauses = []
+        actions_clauses = []
         explanatory_frame_axioms = []
         complete_exclusion_axiom = []
-
-        for step in range(self._length):
-            # 3. encode actions
-            for act in actions:
-                if act.add_effects.issubset(act.positive_preconditions):
-                    continue
-                self.variables.add((act.name, *act.parameters, str(step)))
+        
+        # 3. Encode actions : An action executed at step s should have its positive
+        # (resp. negative) preconditions true (resp. False) at step s and its 
+        # add (resp. delete) effects True (resp. False) at step s +1
+        
+        for act in self.actions:
+                self.variables.add((act.name, *act.parameters, str(step))) # add all actions as vars
                 action_tuple = ('not', act.name, *act.parameters, str(step))
                 
-                # pos preconditions
+                # positive preconditions
                 for p in act.positive_preconditions:
                     action_clause = Clause(action_tuple)
                     p = p + (str(step),)
-                    self.variables.add(p)
                     action_clause.add(p, Operator.OR)
-                    enc_actions_clauses.append(action_clause)
+                    actions_clauses.append(action_clause)
                     
-                # neg preconditions
+                # negative preconditions
                 for p in act.negative_preconditions:
                     action_clause = Clause(action_tuple)
                     p = ('not', ) + p + (str(step),)
-                    self.variables.add(p)
                     action_clause.add(p, Operator.OR)
-                    enc_actions_clauses.append(action_clause)
+                    actions_clauses.append(action_clause)
                     
-                # positive effects
+                # add effects
                 for e in act.add_effects:
                     e = e + (str(step + 1),)
                     self.variables.add(e)
                     action_clause = Clause(action_tuple)
                     action_clause.add(e, Operator.OR)
-                    enc_actions_clauses.append(action_clause)
-                # negative effects
+                    actions_clauses.append(action_clause)
+                # delete effects
                 for e in act.del_effects:
                     self.variables.add(e + (str(step + 1),))
                     e = ('not',) + e + (str(step + 1),)
                     action_clause = Clause(action_tuple)
                     action_clause.add(e, Operator.OR)
-                    enc_actions_clauses.append(action_clause)
+                    actions_clauses.append(action_clause)
 
-            # 4. explanatory frame axioms
-            for fluent in fluents:
+            # 4. Encode explanatory frame axioms: any fluent cannot change its state from 
+            # a step to another unless it results from the effect of an action
+        for fluent in self.fluents:
                 
-                if fluent[0] in self.immutable_predicates and fluent in init_state:
+                if fluent[0] in self.immutable_predicates and fluent in self.init_state:
                     self.variables.add(fluent + (str(step),))
                     clause = Clause(fluent + (str(step),))
                     explanatory_frame_axioms.append(clause)
                     continue
-                elif fluent[0] in self.immutable_predicates and fluent not in init_state:
+                elif fluent[0] in self.immutable_predicates and fluent not in self.init_state:
                     self.variables.add(fluent + (str(step),))
                     clause = Clause(('not', ) + fluent + (str(step),))
                     explanatory_frame_axioms.append(clause)
                     continue
                 
-                pos_clause = Clause(fluent + (str(step), ))
                 self.variables.add(fluent + (str(step), ))
+                self.variables.add(fluent + (str(step +1), )) # add all fluents as variables
+                
+                pos_clause = Clause(fluent + (str(step), ))
                 pos_clause.add(('not', ) + fluent + (str(step +1), ), Operator.OR)
-                self.variables.add( fluent + (str(step +1), ))
                 neg_clause = Clause(('not', ) + fluent + (str(step), ))
                 neg_clause.add(fluent + (str(step +1), ), Operator.OR)
                 
                 act_with_pos_effect = []
                 act_with_neg_effect = []
-                for act in actions:
+                for act in self.actions:
                     if fluent in act.add_effects:
                         act_with_pos_effect.append(act)
                     elif fluent in act.del_effects:
@@ -212,22 +215,19 @@ class PlanningProblemEncoder(object):
                 else:
                     explanatory_frame_axioms.append(neg_clause)
 
-            # 5. complete exclusion axiom
-            for action_pair in combinations(actions, 2):
-
-                self.variables.add((action_pair[0].name, *action_pair[0].parameters, str(step)))
-                self.variables.add((action_pair[1].name, *action_pair[1].parameters, str(step)))
+            # 5. Encode complete exclusion axiom : only one action should be executed 
+            # at a time
+        for action_pair in combinations(self.actions, 2):
+                
                 action0_tuple = ('not', action_pair[0].name, *action_pair[0].parameters, str(step))
                 action1_tuple = ('not', action_pair[1].name, *action_pair[1].parameters, str(step))
                 action_pair_clause = Clause(action0_tuple)
                 action_pair_clause.add(action1_tuple, Operator.OR)
                 complete_exclusion_axiom.append(action_pair_clause)
 
-        proposition_formulas = init_state_clauses + goal_state_clauses + \
-            enc_actions_clauses + explanatory_frame_axioms + \
-            complete_exclusion_axiom
+        self._propositional_formulas +=  actions_clauses +\
+            explanatory_frame_axioms + complete_exclusion_axiom
 
-        return proposition_formulas
 
     def _sat_indexing(self):
         i = 1
@@ -264,17 +264,37 @@ class PlanningProblemEncoder(object):
                     
     
     def build_plan(self, valuation, indexing):
+        """
+        
+
+        Parameters
+        ----------
+        valuation : True/false state for every propositional variable
+        indexing : Dict
+            Keys : Set of variables in boolean SAT problem.
+            Values : Int type index for every variable.
+
+        Decode the valuation of the variables and builds the plan as a sequence
+        of actions
+
+        """
         variables = list(indexing.keys())
         action_names = [act.name for act in self._problem.actions]
         positive_act = list(filter(lambda v: valuation[indexing[v]]\
                                    and v[0] in action_names, variables))
         positive_act = sorted(positive_act, key = lambda x : int(x[-1]))
+        positive_act = [act[:-1] for act in positive_act]
     
         return positive_act
 
     @property
     def propositional_formulas(self):
-        return self._propositional_formulas
+        """
+        Getter function : get the propositional clauses to be satisfied 
+        at a certain step
+
+        """
+        return self._propositional_formulas + self.current_goal_clauses
  
 
 
