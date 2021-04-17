@@ -58,6 +58,7 @@
 )
  
 (:goal
+     (and
      (placed king_diamond)
-     (placed king_club)
+     (placed king_club))
 ))
